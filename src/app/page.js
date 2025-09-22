@@ -9,6 +9,47 @@ export default function Page() {
   const { user, logOut } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
+
+  async function handleLogout() {
+    setDropdownOpen(false);
+    setLogoutLoading(true);
+
+    try {
+      const base =
+        (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/$/, "") || "";
+      const logoutUrl = base ? `${base}/api/auth/logout` : `/api/auth/logout`;
+
+      const res = await fetch(logoutUrl, {
+        method: "POST",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      try {
+        await logOut();
+      } catch (e) {
+        console.log("Local signOut failed:", e);
+      }
+
+      if (res.ok) {
+        toast.success("Successfully logged out!");
+      } else {
+        toast.error(data?.error || "Logout failed!");
+      }
+    } catch (err) {
+      try {
+        await logOut();
+      } catch (e) {
+        console.log("Local signOut failed after error:", e);
+      }
+      console.log("Logout error:", err);
+      toast.error("Logout failed!");
+    } finally {
+      setLogoutLoading(false);
+    }
+  }
 
   return (
     <div className="h-screen max-h-screen overflow-hidden bg-background text-foreground flex flex-col">
@@ -44,19 +85,11 @@ export default function Page() {
               {dropdownOpen && (
                 <div className="absolute right-0 mt-2 w-32 bg-background border border-muted rounded-md shadow-lg z-10">
                   <button
-                    onClick={async () => {
-                      try {
-                        await logOut();
-                        toast.success("Successfully logged out!");
-                      } catch (err) {
-                        toast.error("Logout failed!"); 
-                      } finally {
-                        setDropdownOpen(false);
-                      }
-                    }}
-                    className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-muted"
+                    onClick={handleLogout}
+                    disabled={logoutLoading}
+                    className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-muted disabled:opacity-50"
                   >
-                    Logout
+                    {logoutLoading ? "Logging out..." : "Logout"}
                   </button>
                 </div>
               )}

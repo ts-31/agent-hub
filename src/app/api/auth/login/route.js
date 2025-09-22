@@ -5,6 +5,7 @@ import { dbConnect } from "@/lib/mongoose";
 import User from "@/models/User";
 
 export async function POST(req) {
+  console.log("Req comes to login");
   try {
     const authHeader = req.headers.get("authorization");
     let idToken = null;

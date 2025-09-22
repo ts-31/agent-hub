@@ -40,7 +40,7 @@ export default function LoginModal({ open = false, onClose = () => {} }) {
 
       const base =
         (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/$/, "") || "";
-      const loginUrl = base ? `${base}/api/login` : `/api/login`;
+      const loginUrl = base ? `${base}/api/auth/login` : `/api/auth/login`;
 
       const res = await fetch(loginUrl, {
         method: "POST",
