@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import { signInWithPopup } from "firebase/auth";
+import { auth, googleProvider } from "@/lib/firebase";
 
 export default function LoginModal({
   open = false,
   onClose = () => {},
-  onGoogleSignIn,
+  onGoogleSignIn = () => {},
 }) {
-  const [mode, setMode] = useState("login"); // 'login' | 'register'
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
@@ -15,47 +16,63 @@ export default function LoginModal({
     if (!open) {
       setLoading(false);
       setError(null);
-      setMode("login");
     }
   }, [open]);
 
-  // close on Escape key
   useEffect(() => {
     function handleKey(e) {
       if (e.key === "Escape") onClose();
     }
-    if (open) window.addEventListener("keydown", handleKey);
+    if (open) {
+      window.addEventListener("keydown", handleKey);
+      // Optional: Focus the modal for accessibility
+      const modal = document.querySelector("[role='dialog']");
+      if (modal) modal.focus();
+    }
     return () => window.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
   if (!open) return null;
 
+  async function handleGoogleSignIn() {
+    onGoogleSignIn(); // Call parent handler if needed
+    setError(null);
+    setLoading(true);
+    try {
+      const userCredential = await signInWithPopup(auth, googleProvider);
+      const token = await userCredential.user.getIdToken();
+      console.log("Firebase ID token:", token);
+      onClose();
+    } catch (err) {
+      console.log("Google sign-in error:", err);
+      setError(err?.message || "Google sign-in failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* overlay: silvery/white blur */}
       <div
         className="absolute inset-0 backdrop-blur-md"
         style={{ backgroundColor: "var(--overlay)" }}
         onClick={onClose}
       />
 
-      {/* modal panel */}
       <div
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
+        tabIndex={-1} // For focusability
         className="relative w-full max-w-md mx-4 bg-background text-foreground rounded-xl shadow-lg border-2"
         style={{ borderColor: "var(--modal-border)" }}
       >
-        {/* header */}
         <div className="px-6 py-4 flex items-center justify-between border-b border-muted/40">
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-md bg-primary flex items-center justify-center text-sm font-bold text-white">
               AH
             </div>
-            <div className="text-lg font-semibold">
-              {mode === "login" ? "Sign in" : "Create account"}
-            </div>
+            <div className="text-lg font-semibold">Sign in</div>
           </div>
 
           <button
@@ -67,62 +84,21 @@ export default function LoginModal({
           </button>
         </div>
 
-        {/* tabs */}
-        <div className="px-6 py-3 flex gap-2">
-          <button
-            onClick={() => setMode("login")}
-            className={`flex-1 py-2 rounded-md border ${
-              mode === "login"
-                ? "border-primary text-primary bg-muted/10"
-                : "border-transparent text-muted hover:border-muted"
-            }`}
-            type="button"
-          >
-            Login
-          </button>
-
-          <button
-            onClick={() => setMode("register")}
-            className={`flex-1 py-2 rounded-md border ${
-              mode === "register"
-                ? "border-primary text-primary bg-muted/10"
-                : "border-transparent text-muted hover:border-muted"
-            }`}
-            type="button"
-          >
-            Register
-          </button>
-        </div>
-
-        {/* google-only sign-in block */}
         <div className="px-6 py-6">
-          <div className="text-sm text-muted mb-4">
-            Quick sign in with Google
-          </div>
+          <div className="text-sm text-muted mb-4">Sign in with Google</div>
 
           <div className="flex flex-col gap-3">
             <button
               type="button"
-              onClick={async () => {
-                setError(null);
-                setLoading(true);
-                try {
-                  if (onGoogleSignIn) await onGoogleSignIn();
-                  onClose();
-                } catch (err) {
-                  setError(err?.message || "Google sign-in failed");
-                } finally {
-                  setLoading(false);
-                }
-              }}
-              className="w-full flex items-center justify-center gap-3 py-2 rounded-md border border-muted bg-transparent hover:bg-muted/10"
+              onClick={handleGoogleSignIn}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-3 py-2 rounded-md border border-muted bg-transparent hover:bg-muted/10 disabled:opacity-50"
             >
-              {/* Google logo */}
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 533.5 544.3"
                 className="w-5 h-5"
-                aria-hidden
+                aria-hidden="true"
               >
                 <path
                   fill="#4285f4"

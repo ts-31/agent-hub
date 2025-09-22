@@ -57,13 +57,7 @@ export default function Page() {
       <LoginModal
         open={showLogin}
         onClose={() => setShowLogin(false)}
-        onEmailSignIn={(email, password) =>
-          console.log("Sign in", email, password)
-        }
-        onEmailRegister={(email, password) =>
-          console.log("Register", email, password)
-        }
-        onGoogleSignIn={() => console.log("Google sign-in clicked")}
+        onGoogleSignIn={() => console.log("Google sign-in initiated")}
       />
     </div>
   );
