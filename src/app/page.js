@@ -3,6 +3,7 @@
 import { useState } from "react";
 import LoginModal from "@/components/LoginModal";
 import { useAuth } from "@/context/AuthContext";
+import { toast } from "react-hot-toast";
 
 export default function Page() {
   const { user, logOut } = useAuth();
@@ -43,9 +44,15 @@ export default function Page() {
               {dropdownOpen && (
                 <div className="absolute right-0 mt-2 w-32 bg-background border border-muted rounded-md shadow-lg z-10">
                   <button
-                    onClick={() => {
-                      logOut();
-                      setDropdownOpen(false);
+                    onClick={async () => {
+                      try {
+                        await logOut();
+                        toast.success("Successfully logged out!");
+                      } catch (err) {
+                        toast.error("Logout failed!"); 
+                      } finally {
+                        setDropdownOpen(false);
+                      }
                     }}
                     className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-muted"
                   >
