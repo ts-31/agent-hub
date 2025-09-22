@@ -4,13 +4,11 @@ import React, { useEffect, useState } from "react";
 import { signInWithPopup } from "firebase/auth";
 import { auth, googleProvider } from "@/lib/firebase";
 import { toast } from "react-hot-toast";
+import { useRouter } from "next/navigation";
 
-export default function LoginModal({
-  open = false,
-  onClose = () => {},
-  onGoogleSignIn = () => {},
-}) {
+export default function LoginModal({ open = false, onClose = () => {} }) {
   const [loading, setLoading] = useState(false);
+  const router = useRouter();
 
   useEffect(() => {
     if (!open) {
@@ -33,17 +31,50 @@ export default function LoginModal({
   if (!open) return null;
 
   async function handleGoogleSignIn() {
-    onGoogleSignIn();
     setLoading(true);
     try {
       const userCredential = await signInWithPopup(auth, googleProvider);
-      const token = await userCredential.user.getIdToken();
-      console.log("Firebase ID token:", token);
+      const idToken = await userCredential.user.getIdToken();
+
+      console.log("Firebase ID token:", idToken);
+
+      const base =
+        (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/$/, "") || "";
+      const loginUrl = base ? `${base}/api/login` : `/api/login`;
+
+      const res = await fetch(loginUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${idToken}`,
+        },
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        try {
+          await signOut(auth);
+        } catch (e) {
+          console.log("signOut failed after backend rejection", e);
+        }
+
+        toast.error(data?.error || "Login failed");
+        return;
+      }
 
       toast.success("Successfully logged in!");
       onClose();
+      router.push("/chat");
     } catch (err) {
-      console.log("Google sign-in error:", err);
+      try {
+        await signOut(auth);
+      } catch (e) {
+        console.log("signOut failed after error", e);
+      }
+
+      console.log("Login error:", err);
       toast.error(err?.message || "Google sign-in failed");
     } finally {
       setLoading(false);
@@ -92,6 +123,7 @@ export default function LoginModal({
             disabled={loading}
             className="w-full flex items-center justify-center gap-3 py-2 rounded-md border border-muted bg-transparent hover:bg-muted/10 disabled:opacity-50"
           >
+            {/* Google icon */}
             <svg
               xmlns="http://www.w3.org/2000/svg"
               viewBox="0 0 533.5 544.3"
