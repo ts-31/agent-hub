@@ -1,9 +1,13 @@
 "use client";
+
 import { useState } from "react";
 import LoginModal from "@/components/LoginModal";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Page() {
+  const { user, logOut } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
 
   return (
     <div className="h-screen max-h-screen overflow-hidden bg-background text-foreground flex flex-col">
@@ -17,12 +21,47 @@ export default function Page() {
         </div>
 
         <nav>
-          <button
-            onClick={() => setShowLogin(true)}
-            className="px-4 py-2 rounded-md border border-muted bg-transparent text-foreground hover:bg-muted/20"
-          >
-            Login
-          </button>
+          {user ? (
+            <div className="relative">
+              <button
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 px-4 py-2 rounded-md border border-muted bg-transparent text-foreground hover:bg-muted/20"
+              >
+                {user.photoURL ? (
+                  <img
+                    src={user.photoURL}
+                    alt={user.displayName}
+                    className="w-6 h-6 rounded-full"
+                  />
+                ) : (
+                  <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-white">
+                    {user.displayName?.[0] || "U"}
+                  </div>
+                )}
+                <span className="text-sm">{user.displayName}</span>
+              </button>
+              {dropdownOpen && (
+                <div className="absolute right-0 mt-2 w-32 bg-background border border-muted rounded-md shadow-lg z-10">
+                  <button
+                    onClick={() => {
+                      logOut();
+                      setDropdownOpen(false);
+                    }}
+                    className="w-full px-4 py-2 text-left text-sm text-foreground hover:bg-muted"
+                  >
+                    Logout
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowLogin(true)}
+              className="px-4 py-2 rounded-md border border-muted bg-transparent text-foreground hover:bg-muted/20"
+            >
+              Login
+            </button>
+          )}
         </nav>
       </header>
 
