@@ -5,7 +5,6 @@ const UserSchema = new mongoose.Schema(
   {
     email: { type: String, required: true, unique: true, index: true },
     name: { type: String },
-    provider: { type: String, default: "email" },
     createdAt: { type: Date, default: Date.now },
   },
   { timestamps: true }
