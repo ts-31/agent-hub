@@ -1,4 +1,10 @@
+"use client";
+import { useState } from "react";
+import LoginModal from "@/components/LoginModal";
+
 export default function Page() {
+  const [showLogin, setShowLogin] = useState(false);
+
   return (
     <div className="h-screen max-h-screen overflow-hidden bg-background text-foreground flex flex-col">
       {/* Header */}
@@ -11,13 +17,16 @@ export default function Page() {
         </div>
 
         <nav>
-          <button className="px-4 py-2 rounded-md border border-muted bg-transparent text-foreground hover:bg-muted/20">
+          <button
+            onClick={() => setShowLogin(true)}
+            className="px-4 py-2 rounded-md border border-muted bg-transparent text-foreground hover:bg-muted/20"
+          >
             Login
           </button>
         </nav>
       </header>
 
-      {/* Main Content (now grows to fill available space) */}
+      {/* Main Content */}
       <main className="flex-1 flex items-center justify-center px-6">
         <section className="max-w-4xl w-full text-center">
           <h1 className="text-4xl md:text-5xl font-extrabold mb-4">
@@ -43,6 +52,19 @@ export default function Page() {
       <footer className="px-6 py-4 text-center text-sm text-muted">
         © {new Date().getFullYear()} AgentHub
       </footer>
+
+      {/* Login Modal */}
+      <LoginModal
+        open={showLogin}
+        onClose={() => setShowLogin(false)}
+        onEmailSignIn={(email, password) =>
+          console.log("Sign in", email, password)
+        }
+        onEmailRegister={(email, password) =>
+          console.log("Register", email, password)
+        }
+        onGoogleSignIn={() => console.log("Google sign-in clicked")}
+      />
     </div>
   );
 }
