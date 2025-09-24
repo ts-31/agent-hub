@@ -71,6 +71,20 @@ function Sidebar({
     if (initialProjects) setProjects(initialProjects);
   }, [initialProjects]);
 
+  // called when a new project is created in the modal
+  function handleCreateProject(project) {
+    // map backend project to local shape
+    const mapped = {
+      id: project._id,
+      name: project.name,
+      chats: [],
+    };
+
+    setProjects((prev) => [mapped, ...prev]);
+    setSelectedProjectId(mapped.id);
+    setShowNewModal(false);
+  }
+
   return (
     <aside
       className="hidden md:flex md:flex-col bg-background border-r border-foreground p-4"
@@ -147,6 +161,7 @@ function Sidebar({
       <NewProjectModal
         open={showNewModal}
         onClose={() => setShowNewModal(false)}
+        onCreate={handleCreateProject}
       />
     </aside>
   );

@@ -1,8 +1,18 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
+import { toast } from "react-hot-toast";
 
-export default function NewProjectModal({ open = false, onClose = () => {} }) {
+export default function NewProjectModal({
+  open = false,
+  onClose = () => {},
+  onCreate = () => {},
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState("");
+  const [loading, setLoading] = useState(false);
+
   useEffect(() => {
     function handleKey(e) {
       if (e.key === "Escape") onClose();
@@ -15,7 +25,75 @@ export default function NewProjectModal({ open = false, onClose = () => {} }) {
     return () => window.removeEventListener("keydown", handleKey);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setDescription("");
+      setSystemPrompt("");
+      setLoading(false);
+    }
+  }, [open]);
+
   if (!open) return null;
+
+  async function handleAddProject() {
+    if (!name.trim()) {
+      toast.error("Project name is required");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
+        /\/$/,
+        ""
+      );
+      const url = base ? `${base}/api/projects` : "/api/projects";
+
+      const res = await fetch(url, {
+        method: "POST",
+        credentials: "include", // send session cookie
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          name: name.trim(),
+          description: description.trim() || undefined,
+          systemPrompt: systemPrompt.trim() || undefined,
+          meta: {},
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        const message = data?.error || "Failed to create project";
+        toast.error(message);
+        return;
+      }
+
+      const project = data.project;
+      if (!project) {
+        toast.error("Unexpected response from server");
+        return;
+      }
+
+      toast.success("Project created");
+      // inform parent so it can add to UI
+      try {
+        onCreate(project);
+      } catch (e) {
+        // ignore errors in parent callback
+        console.log("onCreate callback error", e);
+      }
+
+      onClose();
+    } catch (err) {
+      console.log("Create project error", err);
+      toast.error(err?.message || "Failed to create project");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -52,6 +130,8 @@ export default function NewProjectModal({ open = false, onClose = () => {} }) {
             <input
               type="text"
               placeholder="My project"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               className="w-full rounded-md px-3 py-2"
               style={{
                 backgroundColor: "transparent",
@@ -66,6 +146,8 @@ export default function NewProjectModal({ open = false, onClose = () => {} }) {
             <input
               type="text"
               placeholder="Short description (optional)"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               className="w-full rounded-md px-3 py-2"
               style={{
                 backgroundColor: "transparent",
@@ -79,6 +161,8 @@ export default function NewProjectModal({ open = false, onClose = () => {} }) {
             <label className="block text-sm mb-1">System prompt</label>
             <textarea
               placeholder="Define the agent's role / instructions..."
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
               className="w-full rounded-md px-3 py-2 min-h-[100px] resize-vertical"
               style={{
                 backgroundColor: "transparent",
@@ -103,17 +187,18 @@ export default function NewProjectModal({ open = false, onClose = () => {} }) {
             Cancel
           </button>
 
-          {/* Add button intentionally does nothing */}
           <button
             type="button"
-            onClick={() => {}}
+            onClick={handleAddProject}
+            disabled={loading}
             className="px-4 py-2 rounded-md"
             style={{
               backgroundColor: "var(--color-primary)",
               color: "var(--color-foreground)",
+              opacity: loading ? 0.6 : 1,
             }}
           >
-            Add
+            {loading ? "Adding..." : "Add"}
           </button>
         </div>
       </div>
