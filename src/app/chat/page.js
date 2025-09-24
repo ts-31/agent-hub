@@ -15,7 +15,6 @@ import ProjectList from "@/components/chat/ProjectList";
 import ChatHeader from "@/components/chat/ChatHeader";
 import MessageList from "@/components/chat/MessageList";
 import ChatInput from "@/components/chat/ChatInput";
-import { STATIC_PROJECTS } from "@/data/projects";
 
 /* ---------- Auto-scroll helpers ---------- */
 const SCROLL_THRESHOLD = 100; // px
@@ -36,11 +35,14 @@ function scrollToBottom(el, smooth = true) {
 /* ----------------------------------------- */
 
 export default function Chat() {
-  const [projects] = useState(STATIC_PROJECTS);
-  const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
-  const [messages, setMessages] = useState(() => projects[0].chats || []);
+  const [projects, setProjects] = useState([]); // fetched projects
+  const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [online, setOnline] = useState(false);
+  const [loadingProjects, setLoadingProjects] = useState(true);
+  const [fetchError, setFetchError] = useState(null);
+
   const textareaRef = useRef(null);
   const chatContainerRef = useRef(null);
 
@@ -67,6 +69,57 @@ export default function Chat() {
     onConnectError: (status) => setOnline(status),
   });
 
+  // fetch projects for logged-in user
+  useEffect(() => {
+    let mounted = true;
+    async function fetchProjects() {
+      setLoadingProjects(true);
+      setFetchError(null);
+      try {
+        const res = await fetch("/api/projects", {
+          method: "GET",
+          credentials: "include", // send session cookie
+          headers: { "Content-Type": "application/json" },
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to fetch projects");
+        }
+
+        // map backend projects to expected shape: { id, name, chats }
+        const mapped = (data.projects || []).map((p) => ({
+          id: p._id,
+          name: p.name,
+          // keep chats empty for now; chat messages handled separately
+          chats: [],
+        }));
+
+        if (!mounted) return;
+        setProjects(mapped);
+        if (mapped.length > 0) {
+          setSelectedProjectId((prev) => prev || mapped[0].id);
+          setMessages(mapped[0].chats || []);
+        } else {
+          setSelectedProjectId(null);
+          setMessages([]);
+        }
+      } catch (err) {
+        if (!mounted) return;
+        setFetchError(err?.message || "Error fetching projects");
+        setProjects([]);
+        setSelectedProjectId(null);
+        setMessages([]);
+      } finally {
+        if (mounted) setLoadingProjects(false);
+      }
+    }
+
+    fetchProjects();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
   useEffect(() => {
     const proj = projects.find((p) => p.id === selectedProjectId);
     setMessages(proj?.chats || []);
@@ -77,7 +130,6 @@ export default function Chat() {
     const chatContainer = chatContainerRef.current;
     if (!chatContainer) return;
 
-    // If the user is already near the bottom, snap to bottom (no animation needed on initial mount)
     if (isUserNearBottom(chatContainer)) {
       scrollToBottom(chatContainer, false);
     }
@@ -168,11 +220,42 @@ export default function Chat() {
         </div>
         <SheetContent side="left" className="w-72 p-4 md:hidden">
           <div className="text-sm font-semibold mb-4">Projects</div>
-          <ProjectList
-            projects={projects}
-            selectedProjectId={selectedProjectId}
-            onSelectProject={setSelectedProjectId}
-          />
+
+          {/* Loader or ProjectList */}
+          {loadingProjects ? (
+            <div className="flex items-center justify-center py-6">
+              {/* simple spinner */}
+              <svg
+                className="w-6 h-6 animate-spin text-muted"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                ></circle>
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
+              </svg>
+            </div>
+          ) : fetchError ? (
+            <div className="text-sm text-red-400">{fetchError}</div>
+          ) : (
+            <ProjectList
+              projects={projects}
+              selectedProjectId={selectedProjectId}
+              onSelectProject={setSelectedProjectId}
+            />
+          )}
+
           <div className="mt-6">
             <SheetClose asChild>
               <Button>Close</Button>
