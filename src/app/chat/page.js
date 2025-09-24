@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Send } from "lucide-react";
 import { io } from "socket.io-client";
-import { toast } from "react-hot-toast"; // your global toast setup
+import { toast } from "react-hot-toast"; 
 
 const STATIC_PROJECTS = [
   {
@@ -57,6 +57,7 @@ export default function ChatPage() {
   const textareaRef = useRef(null);
 
   const socketRef = useRef(null);
+  const [online, setOnline] = useState(false); // <-- online/offline state
 
   // Sidebar/resizer state
   const [sidebarWidth, setSidebarWidth] = useState(256);
@@ -64,13 +65,11 @@ export default function ChatPage() {
   const dragStartX = useRef(0);
   const startWidthRef = useRef(sidebarWidth);
 
-  // Update messages when project changes
   useEffect(() => {
     const proj = projects.find((p) => p.id === selectedProjectId);
     setMessages(proj?.chats || []);
   }, [selectedProjectId, projects]);
 
-  // Auto scroll to bottom
   useEffect(() => {
     const el = messagesRef.current;
     if (el) el.scrollTop = el.scrollHeight;
@@ -82,7 +81,6 @@ export default function ChatPage() {
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
   }
-
   useEffect(() => autoGrowTextarea(), [input]);
 
   // --- SOCKET.IO SETUP ---
@@ -105,12 +103,17 @@ export default function ChatPage() {
     socket.off("message");
     socket.off("connect_error");
 
+    // set initial online state from socket (useful if already connected)
+    setOnline(!!socket.connected);
+
     socket.on("connect", () => {
+      setOnline(true); // update indicator
       toast.success("Connected to chat");
       console.log("Socket connected:", socket.id);
     });
 
     socket.on("disconnect", (reason) => {
+      setOnline(false); // update indicator
       toast.error("Disconnected from chat");
       console.log("Socket disconnected:", reason);
     });
@@ -128,6 +131,8 @@ export default function ChatPage() {
     });
 
     socket.on("connect_error", (err) => {
+      // treat connection error as offline for the UI
+      setOnline(false);
       console.log("Socket connection failed:", err.message);
       if (
         err.message === "No auth cookie" ||
@@ -270,8 +275,23 @@ export default function ChatPage() {
               {projects.find((p) => p.id === selectedProjectId)?.name}
             </div>
           </div>
-          <div className="text-sm text-foreground/60 hidden sm:block">
-            Online
+
+          {/* ====== Online indicator (green/red) ====== */}
+          <div className="flex items-center gap-2">
+            <span
+              className={`inline-block w-3 h-3 rounded-full ${
+                online ? "bg-green-400" : "bg-red-500"
+              }`}
+              aria-hidden
+            />
+            <div
+              className={`text-sm ${
+                online ? "text-green-300" : "text-red-300"
+              }`}
+              aria-live="polite"
+            >
+              {online ? "Online" : "Offline"}
+            </div>
           </div>
         </header>
 

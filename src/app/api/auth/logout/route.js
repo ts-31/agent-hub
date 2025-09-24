@@ -3,10 +3,11 @@ import { NextResponse } from "next/server";
 import { getFirebaseAdmin } from "@/lib/firebaseAdmin";
 
 export async function POST(req) {
+  console.log("Req comes to Logout");
   try {
     // read session cookie from request
     const sessionCookie = req.cookies?.get?.("session")?.value || null;
-
+    console.log("Cookies reading at Logout");
     const admin = getFirebaseAdmin();
     const isProd = process.env.NODE_ENV === "production";
 
