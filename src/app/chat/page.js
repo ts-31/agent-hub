@@ -35,13 +35,11 @@ function scrollToBottom(el, smooth = true) {
 /* ----------------------------------------- */
 
 export default function Chat() {
-  const [projects, setProjects] = useState([]); // fetched projects
   const [selectedProjectId, setSelectedProjectId] = useState(null);
+  const [projectName, setProjectName] = useState("");
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [online, setOnline] = useState(false);
-  const [loadingProjects, setLoadingProjects] = useState(true);
-  const [fetchError, setFetchError] = useState(null);
 
   const textareaRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -69,22 +67,26 @@ export default function Chat() {
     onConnectError: (status) => setOnline(status),
   });
 
-  // fetch projects for logged-in user
+  // When selectedProjectId changes, fetch the project's name (lightweight)
   useEffect(() => {
+    if (!selectedProjectId) {
+      setProjectName("");
+      setMessages([]);
+      return;
+    }
+
     let mounted = true;
-    async function fetchProjects() {
-      setLoadingProjects(true);
-      setFetchError(null);
+    async function fetchProjectName() {
       try {
         const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
           /\/$/,
           ""
         );
-        const projectsUrl = base ? `${base}/api/projects` : "/api/projects";
+        const url = base ? `${base}/api/projects` : "/api/projects";
 
-        const res = await fetch(projectsUrl, {
+        const res = await fetch(url, {
           method: "GET",
-          credentials: "include", // send session cookie
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
         const data = await res.json().catch(() => ({}));
@@ -92,44 +94,26 @@ export default function Chat() {
           throw new Error(data?.error || "Failed to fetch projects");
         }
 
-        // map backend projects to expected shape: { id, name, chats }
-        const mapped = (data.projects || []).map((p) => ({
-          id: p._id,
-          name: p.name,
-          // keep chats empty for now; chat messages handled separately
-          chats: [],
-        }));
-
+        const found = (data.projects || []).find(
+          (p) => p._id === selectedProjectId
+        );
         if (!mounted) return;
-        setProjects(mapped);
-        if (mapped.length > 0) {
-          setSelectedProjectId((prev) => prev || mapped[0].id);
-          setMessages(mapped[0].chats || []);
-        } else {
-          setSelectedProjectId(null);
-          setMessages([]);
-        }
+
+        setProjectName(found ? found.name : "");
+        // we keep messages empty for now; actual chat messages are handled via socket / separate API
+        setMessages([]);
       } catch (err) {
         if (!mounted) return;
-        setFetchError(err?.message || "Error fetching projects");
-        setProjects([]);
-        setSelectedProjectId(null);
+        setProjectName("");
         setMessages([]);
-      } finally {
-        if (mounted) setLoadingProjects(false);
       }
     }
 
-    fetchProjects();
+    fetchProjectName();
     return () => {
       mounted = false;
     };
-  }, []);
-
-  useEffect(() => {
-    const proj = projects.find((p) => p.id === selectedProjectId);
-    setMessages(proj?.chats || []);
-  }, [selectedProjectId, projects]);
+  }, [selectedProjectId]);
 
   // Auto-scroll on mount/update only if near bottom
   useEffect(() => {
@@ -206,7 +190,6 @@ export default function Chat() {
     <div className="h-screen flex bg-background text-foreground">
       <Sidebar
         width={sidebarWidth}
-        projects={projects}
         selectedProjectId={selectedProjectId}
         setSelectedProjectId={setSelectedProjectId}
       />
@@ -226,42 +209,12 @@ export default function Chat() {
         </div>
         <SheetContent side="left" className="w-72 p-4 md:hidden">
           <div className="text-sm font-semibold mb-4">Projects</div>
-
-          {/* Loader or ProjectList */}
-          {loadingProjects ? (
-            <div className="flex items-center justify-center py-6">
-              {/* simple spinner */}
-              <svg
-                className="w-6 h-6 animate-spin text-muted"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                ></circle>
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                ></path>
-              </svg>
-            </div>
-          ) : fetchError ? (
-            <div className="text-sm text-red-400">{fetchError}</div>
-          ) : (
-            <ProjectList
-              projects={projects}
-              selectedProjectId={selectedProjectId}
-              onSelectProject={setSelectedProjectId}
-            />
-          )}
-
+          {/* Sidebar's mobile sheet uses the same Sidebar logic on desktop */}
+          <ProjectList
+            projects={[]}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+          />
           <div className="mt-6">
             <SheetClose asChild>
               <Button>Close</Button>
@@ -271,10 +224,7 @@ export default function Chat() {
       </Sheet>
 
       <main className="flex-1 flex flex-col">
-        <ChatHeader
-          projectName={projects.find((p) => p.id === selectedProjectId)?.name}
-          online={online}
-        />
+        <ChatHeader projectName={projectName} online={online} />
 
         {/* add scroll-smooth for extra polish; programmatic scroll uses behavior:'smooth' */}
         <div
