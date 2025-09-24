@@ -44,6 +44,7 @@ export async function POST(req) {
       user = await User.create({
         email,
         name,
+        firebaseUid: decoded.uid, 
       });
     } else {
       if (!user.name && name) {
