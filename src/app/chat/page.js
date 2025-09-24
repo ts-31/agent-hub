@@ -8,9 +8,13 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Send } from "lucide-react";
 import { io } from "socket.io-client";
-import { toast } from "react-hot-toast"; 
+import { toast } from "react-hot-toast";
+import Sidebar from "@/components/chat/Sidebar";
+import ProjectList from "@/components/chat/ProjectList";
+import ChatHeader from "@/components/chat/ChatHeader";
+import MessageList from "@/components/chat/MessageList";
+import ChatInput from "@/components/chat/ChatInput";
 
 const STATIC_PROJECTS = [
   {
@@ -48,18 +52,16 @@ const STATIC_PROJECTS = [
   },
 ];
 
-export default function ChatPage() {
+export default function Chat() {
   const [projects] = useState(STATIC_PROJECTS);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
   const [messages, setMessages] = useState(() => projects[0].chats || []);
   const [input, setInput] = useState("");
-  const messagesRef = useRef(null);
   const textareaRef = useRef(null);
 
   const socketRef = useRef(null);
-  const [online, setOnline] = useState(false); // <-- online/offline state
+  const [online, setOnline] = useState(false);
 
-  // Sidebar/resizer state
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
@@ -70,20 +72,13 @@ export default function ChatPage() {
     setMessages(proj?.chats || []);
   }, [selectedProjectId, projects]);
 
-  useEffect(() => {
-    const el = messagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
-
   function autoGrowTextarea() {
     const el = textareaRef.current;
     if (!el) return;
     el.style.height = "auto";
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
   }
-  useEffect(() => autoGrowTextarea(), [input]);
 
-  // --- SOCKET.IO SETUP ---
   useEffect(() => {
     if (typeof window === "undefined") return;
 
@@ -97,23 +92,21 @@ export default function ChatPage() {
     const socket = window.__io;
     socketRef.current = socket;
 
-    // Remove old listeners (Fast Refresh safety)
     socket.off("connect");
     socket.off("disconnect");
     socket.off("message");
     socket.off("connect_error");
 
-    // set initial online state from socket (useful if already connected)
     setOnline(!!socket.connected);
 
     socket.on("connect", () => {
-      setOnline(true); // update indicator
+      setOnline(true);
       toast.success("Connected to chat");
       console.log("Socket connected:", socket.id);
     });
 
     socket.on("disconnect", (reason) => {
-      setOnline(false); // update indicator
+      setOnline(false);
       toast.error("Disconnected from chat");
       console.log("Socket disconnected:", reason);
     });
@@ -131,7 +124,6 @@ export default function ChatPage() {
     });
 
     socket.on("connect_error", (err) => {
-      // treat connection error as offline for the UI
       setOnline(false);
       console.log("Socket connection failed:", err.message);
       if (
@@ -152,7 +144,6 @@ export default function ChatPage() {
     };
   }, []);
 
-  // Send message to server
   function handleSend() {
     if (!input.trim()) return;
 
@@ -176,7 +167,6 @@ export default function ChatPage() {
     }
   }
 
-  // Sidebar drag logic
   useEffect(() => {
     function onMouseMove(e) {
       if (!isDragging) return;
@@ -203,30 +193,13 @@ export default function ChatPage() {
 
   return (
     <div className="h-screen flex bg-background text-foreground">
-      {/* Desktop sidebar */}
-      <aside
-        className="hidden md:flex md:flex-col bg-background border-r border-gray-700 p-4"
-        style={{ width: sidebarWidth }}
-      >
-        <div className="text-sm font-semibold mb-4">Projects</div>
-        <div className="flex-1 space-y-2 overflow-auto">
-          {projects.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedProjectId(p.id)}
-              className={`w-full text-left px-3 py-2 rounded-md text-sm border ${
-                selectedProjectId === p.id
-                  ? "bg-gray-700 border-gray-600"
-                  : "hover:bg-gray-800 border-transparent"
-              }`}
-            >
-              {p.name}
-            </button>
-          ))}
-        </div>
-      </aside>
+      <Sidebar
+        width={sidebarWidth}
+        projects={projects}
+        selectedProjectId={selectedProjectId}
+        setSelectedProjectId={setSelectedProjectId}
+      />
 
-      {/* Resizer */}
       <div
         className="hidden md:block cursor-col-resize select-none h-full bg-gray-800 hover:bg-gray-600"
         onMouseDown={startDrag}
@@ -234,7 +207,6 @@ export default function ChatPage() {
         aria-hidden
       />
 
-      {/* Mobile sheet */}
       <Sheet>
         <div className="md:hidden absolute top-4 left-4 z-30">
           <SheetTrigger asChild>
@@ -243,21 +215,11 @@ export default function ChatPage() {
         </div>
         <SheetContent side="left" className="w-72 p-4 md:hidden">
           <div className="text-sm font-semibold mb-4">Projects</div>
-          <div className="space-y-2">
-            {projects.map((p) => (
-              <button
-                key={p.id}
-                onClick={() => setSelectedProjectId(p.id)}
-                className={`w-full text-left px-3 py-2 rounded-md text-sm border ${
-                  selectedProjectId === p.id
-                    ? "bg-gray-700 border-gray-600"
-                    : "hover:bg-gray-800 border-transparent"
-                }`}
-              >
-                {p.name}
-              </button>
-            ))}
-          </div>
+          <ProjectList
+            projects={projects}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+          />
           <div className="mt-6">
             <SheetClose asChild>
               <Button>Close</Button>
@@ -266,87 +228,24 @@ export default function ChatPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Chat */}
       <main className="flex-1 flex flex-col">
-        <header className="flex items-center justify-between border-b border-gray-800 px-6 h-16">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold">AgentHub Chat</h1>
-            <div className="ml-3 text-sm text-foreground/70">
-              {projects.find((p) => p.id === selectedProjectId)?.name}
-            </div>
-          </div>
-
-          {/* ====== Online indicator (green/red) ====== */}
-          <div className="flex items-center gap-2">
-            <span
-              className={`inline-block w-3 h-3 rounded-full ${
-                online ? "bg-green-400" : "bg-red-500"
-              }`}
-              aria-hidden
-            />
-            <div
-              className={`text-sm ${
-                online ? "text-green-300" : "text-red-300"
-              }`}
-              aria-live="polite"
-            >
-              {online ? "Online" : "Offline"}
-            </div>
-          </div>
-        </header>
+        <ChatHeader
+          projectName={projects.find((p) => p.id === selectedProjectId)?.name}
+          online={online}
+        />
 
         <div className="flex-1 overflow-auto py-6 px-6">
-          <div ref={messagesRef} className="mx-auto max-w-3xl w-full space-y-4">
-            {messages.length === 0 && (
-              <div className="text-center text-sm text-foreground/60">
-                No messages yet — start the conversation below.
-              </div>
-            )}
-            {messages.map((m) => (
-              <div
-                key={m.id}
-                className={`flex w-full ${
-                  m.role === "user" ? "justify-end" : ""
-                }`}
-              >
-                <div
-                  className={`inline-block p-3 rounded-xl shadow-sm border max-w-[65%] w-auto text-base ${
-                    m.role === "assistant"
-                      ? "bg-gray-800 border-gray-700 text-foreground"
-                      : "bg-gray-700 border-gray-600 text-foreground"
-                  }`}
-                >
-                  {m.text}
-                </div>
-              </div>
-            ))}
-          </div>
+          <MessageList messages={messages} />
         </div>
 
-        <div className="border-t border-gray-800 py-4 px-6">
-          <div className="mx-auto max-w-3xl w-full flex gap-2">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              onInput={autoGrowTextarea}
-              rows={1}
-              placeholder="Send a message..."
-              className="flex-1 resize-none rounded-lg border border-gray-700 p-3 text-lg
-                         focus:outline-none focus:ring-1 focus:ring-primary
-                         placeholder:opacity-60 bg-background text-foreground
-                         overflow-auto scrollbar-thin scrollbar-thumb-gray-500 scrollbar-track-transparent"
-            />
-            <button
-              onClick={handleSend}
-              className="flex-none h-12 w-12 flex items-center justify-center
-                         rounded-md border border-foreground text-foreground hover:bg-foreground/10"
-            >
-              <Send size={20} />
-            </button>
-          </div>
-        </div>
+        <ChatInput
+          input={input}
+          setInput={setInput}
+          handleSend={handleSend}
+          handleKeyDown={handleKeyDown}
+          textareaRef={textareaRef}
+          autoGrowTextarea={autoGrowTextarea}
+        />
       </main>
     </div>
   );
