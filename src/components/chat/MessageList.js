@@ -1,15 +1,8 @@
-import React, { useEffect, useRef } from "react";
+import React from "react";
 
 function MessageList({ messages }) {
-  const messagesRef = useRef(null);
-
-  useEffect(() => {
-    const el = messagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
-  }, [messages]);
-
   return (
-    <div ref={messagesRef} className="mx-auto max-w-3xl w-full space-y-4">
+    <div className="mx-auto max-w-3xl w-full space-y-4">
       {messages.length === 0 && (
         <div className="text-center text-sm text-foreground/60">
           No messages yet — start the conversation below.

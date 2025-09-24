@@ -23,6 +23,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [online, setOnline] = useState(false);
   const textareaRef = useRef(null);
+  const chatContainerRef = useRef(null);
 
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isDragging, setIsDragging] = useState(false);
@@ -40,6 +41,27 @@ export default function Chat() {
     const proj = projects.find((p) => p.id === selectedProjectId);
     setMessages(proj?.chats || []);
   }, [selectedProjectId, projects]);
+
+  // Auto-scroll logic
+  useEffect(() => {
+    const chatContainer = chatContainerRef.current;
+    if (!chatContainer) return;
+
+    // Check if user is near the bottom (within 100px)
+    const isNearBottom =
+      chatContainer.scrollHeight -
+        chatContainer.scrollTop -
+        chatContainer.clientHeight <
+      100;
+
+    if (isNearBottom) {
+      // Use requestAnimationFrame to ensure DOM is updated
+      const scrollToBottom = () => {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+      };
+      requestAnimationFrame(scrollToBottom);
+    }
+  }, [messages]);
 
   function autoGrowTextarea() {
     const el = textareaRef.current;
@@ -131,7 +153,7 @@ export default function Chat() {
           online={online}
         />
 
-        <div className="flex-1 overflow-auto py-6 px-6">
+        <div ref={chatContainerRef} className="flex-1 overflow-auto py-6 px-6">
           <MessageList messages={messages} />
         </div>
 
