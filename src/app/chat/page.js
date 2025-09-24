@@ -103,6 +103,7 @@ export default function ChatPage() {
     socket.off("connect");
     socket.off("disconnect");
     socket.off("message");
+    socket.off("connect_error");
 
     socket.on("connect", () => {
       toast.success("Connected to chat");
@@ -126,10 +127,23 @@ export default function ChatPage() {
       setMessages((m) => [...m, assistantMsg]);
     });
 
+    socket.on("connect_error", (err) => {
+      console.log("Socket connection failed:", err.message);
+      if (
+        err.message === "No auth cookie" ||
+        err.message === "Invalid or expired session"
+      ) {
+        toast.error("Unauthorized: Please log in to access chat");
+      } else {
+        toast.error(`Socket error: ${err.message}`);
+      }
+    });
+
     return () => {
       socket.off("connect");
       socket.off("disconnect");
       socket.off("message");
+      socket.off("connect_error");
     };
   }, []);
 
