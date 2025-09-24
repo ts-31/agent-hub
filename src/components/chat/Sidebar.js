@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import ProjectList from "./ProjectList";
+import NewProjectModal from "./NewProjectModal";
 
 function Sidebar({
   width,
@@ -8,8 +9,9 @@ function Sidebar({
   setSelectedProjectId,
 }) {
   const [projects, setProjects] = useState(initialProjects || []);
-  const [loading, setLoading] = useState(!initialProjects); // only show loader if we need to fetch
+  const [loading, setLoading] = useState(!initialProjects);
   const [error, setError] = useState(null);
+  const [showNewModal, setShowNewModal] = useState(false);
 
   useEffect(() => {
     if (initialProjects) return;
@@ -28,7 +30,7 @@ function Sidebar({
 
         const res = await fetch(url, {
           method: "GET",
-          credentials: "include", // send session cookie
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
 
@@ -40,14 +42,12 @@ function Sidebar({
         const mapped = (data.projects || []).map((p) => ({
           id: p._id,
           name: p.name,
-          chats: [], // leave empty; chat messages handled separately
+          chats: [],
         }));
 
         if (!mounted) return;
 
         setProjects(mapped);
-
-        // auto-select first project if none selected
         if (!selectedProjectId && mapped.length > 0) {
           setSelectedProjectId(mapped[0].id);
         }
@@ -55,7 +55,6 @@ function Sidebar({
         if (!mounted) return;
         setError(err?.message || "Error fetching projects");
         setProjects([]);
-        // clear selection on error
         setSelectedProjectId(null);
       } finally {
         if (mounted) setLoading(false);
@@ -66,10 +65,8 @@ function Sidebar({
     return () => {
       mounted = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialProjects]); // run once (or if initialProjects changes)
+  }, [initialProjects]); // eslint-disable-line
 
-  // keep projects in sync if parent updates initialProjects later
   useEffect(() => {
     if (initialProjects) setProjects(initialProjects);
   }, [initialProjects]);
@@ -83,14 +80,14 @@ function Sidebar({
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold">Projects</div>
 
-          {/* New Project button (beautiful, no-op) */}
+          {/* New Project button now opens the modal */}
           <button
             type="button"
             className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-white text-sm font-medium shadow-md border border-foreground hover:scale-[1.02] transition-transform active:scale-100"
-            aria-label="Create new project (not implemented)"
+            aria-label="Create new project"
             onClick={(e) => {
               e.preventDefault();
-              // no-op for now; reserved for future behavior
+              setShowNewModal(true);
             }}
           >
             <svg
@@ -145,6 +142,12 @@ function Sidebar({
           />
         )}
       </div>
+
+      {/* New Project Modal */}
+      <NewProjectModal
+        open={showNewModal}
+        onClose={() => setShowNewModal(false)}
+      />
     </aside>
   );
 }
