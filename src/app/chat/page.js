@@ -76,7 +76,13 @@ export default function Chat() {
       setLoadingProjects(true);
       setFetchError(null);
       try {
-        const res = await fetch("/api/projects", {
+        const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
+          /\/$/,
+          ""
+        );
+        const projectsUrl = base ? `${base}/api/projects` : "/api/projects";
+
+        const res = await fetch(projectsUrl, {
           method: "GET",
           credentials: "include", // send session cookie
           headers: { "Content-Type": "application/json" },
