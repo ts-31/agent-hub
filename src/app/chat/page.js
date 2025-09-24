@@ -1,3 +1,4 @@
+// src/app/chat/page.js
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
@@ -16,6 +17,24 @@ import MessageList from "@/components/chat/MessageList";
 import ChatInput from "@/components/chat/ChatInput";
 import { STATIC_PROJECTS } from "@/data/projects";
 
+/* ---------- Auto-scroll helpers ---------- */
+const SCROLL_THRESHOLD = 100; // px
+
+function isUserNearBottom(el, threshold = SCROLL_THRESHOLD) {
+  if (!el) return true; // if unknown, assume safe to scroll
+  return el.scrollHeight - el.scrollTop - el.clientHeight < threshold;
+}
+
+function scrollToBottom(el, smooth = true) {
+  if (!el) return;
+  if (smooth && el.scrollTo) {
+    el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  } else {
+    el.scrollTop = el.scrollHeight;
+  }
+}
+/* ----------------------------------------- */
+
 export default function Chat() {
   const [projects] = useState(STATIC_PROJECTS);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
@@ -30,8 +49,19 @@ export default function Chat() {
   const dragStartX = useRef(0);
   const startWidthRef = useRef(sidebarWidth);
 
+  // Socket: wrap onMessage to decide whether to autoscroll
   const { socket, sendMessage } = useSocket({
-    onMessage: (message) => setMessages((m) => [...m, message]),
+    onMessage: (message) => {
+      const chatContainer = chatContainerRef.current;
+      const shouldAutoScroll = isUserNearBottom(chatContainer);
+
+      setMessages((m) => [...m, message]);
+
+      // after DOM paint, scroll if user was near bottom
+      requestAnimationFrame(() => {
+        if (shouldAutoScroll) scrollToBottom(chatContainer, true);
+      });
+    },
     onConnect: (status) => setOnline(status),
     onDisconnect: (status) => setOnline(status),
     onConnectError: (status) => setOnline(status),
@@ -42,26 +72,16 @@ export default function Chat() {
     setMessages(proj?.chats || []);
   }, [selectedProjectId, projects]);
 
-  // Auto-scroll logic
+  // Auto-scroll on mount/update only if near bottom
   useEffect(() => {
     const chatContainer = chatContainerRef.current;
     if (!chatContainer) return;
 
-    // Check if user is near the bottom (within 100px)
-    const isNearBottom =
-      chatContainer.scrollHeight -
-        chatContainer.scrollTop -
-        chatContainer.clientHeight <
-      100;
-
-    if (isNearBottom) {
-      // Use requestAnimationFrame to ensure DOM is updated
-      const scrollToBottom = () => {
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-      };
-      requestAnimationFrame(scrollToBottom);
+    // If the user is already near the bottom, snap to bottom (no animation needed on initial mount)
+    if (isUserNearBottom(chatContainer)) {
+      scrollToBottom(chatContainer, false);
     }
-  }, [messages]);
+  }, []); // run once on mount
 
   function autoGrowTextarea() {
     const el = textareaRef.current;
@@ -74,9 +94,20 @@ export default function Chat() {
     if (!input.trim()) return;
 
     const userMsg = { id: Date.now(), role: "user", text: input.trim() };
+
+    // check user's position *before* adding the message
+    const chatContainer = chatContainerRef.current;
+    const shouldAutoScroll = isUserNearBottom(chatContainer);
+
+    // optimistically append the message
     setMessages((m) => [...m, userMsg]);
     sendMessage(input.trim());
     setInput("");
+
+    // after DOM update, scroll if appropriate
+    requestAnimationFrame(() => {
+      if (shouldAutoScroll) scrollToBottom(chatContainer, true);
+    });
   }
 
   function handleKeyDown(e) {
@@ -86,6 +117,9 @@ export default function Chat() {
     }
   }
 
+  useEffect(() => autoGrowTextarea(), [input]);
+
+  // Sidebar drag logic
   useEffect(() => {
     function onMouseMove(e) {
       if (!isDragging) return;
@@ -153,7 +187,11 @@ export default function Chat() {
           online={online}
         />
 
-        <div ref={chatContainerRef} className="flex-1 overflow-auto py-6 px-6">
+        {/* add scroll-smooth for extra polish; programmatic scroll uses behavior:'smooth' */}
+        <div
+          ref={chatContainerRef}
+          className="flex-1 overflow-auto py-6 px-6 scroll-smooth"
+        >
           <MessageList messages={messages} />
         </div>
 
