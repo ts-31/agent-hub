@@ -8,64 +8,33 @@ import {
   SheetClose,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { io } from "socket.io-client";
-import { toast } from "react-hot-toast";
+import useSocket from "@/hooks/useSocket";
 import Sidebar from "@/components/chat/Sidebar";
 import ProjectList from "@/components/chat/ProjectList";
 import ChatHeader from "@/components/chat/ChatHeader";
 import MessageList from "@/components/chat/MessageList";
 import ChatInput from "@/components/chat/ChatInput";
-
-const STATIC_PROJECTS = [
-  {
-    id: 1,
-    name: "Project A",
-    chats: [
-      {
-        id: 1,
-        role: "assistant",
-        text: "Hello — I'm Agent for Project A. How can I help?",
-      },
-      { id: 2, role: "user", text: "Give me a one-line summary of Project A." },
-      {
-        id: 3,
-        role: "assistant",
-        text: "Project A is a demo to showcase Chat-like UI with Next.js and Tailwind.",
-      },
-    ],
-  },
-  {
-    id: 2,
-    name: "Project B",
-    chats: [
-      {
-        id: 1,
-        role: "assistant",
-        text: "Agent for Project B here — ready when you are.",
-      },
-    ],
-  },
-  {
-    id: 3,
-    name: "Project C",
-    chats: [],
-  },
-];
+import { STATIC_PROJECTS } from "@/data/projects";
 
 export default function Chat() {
   const [projects] = useState(STATIC_PROJECTS);
   const [selectedProjectId, setSelectedProjectId] = useState(projects[0].id);
   const [messages, setMessages] = useState(() => projects[0].chats || []);
   const [input, setInput] = useState("");
-  const textareaRef = useRef(null);
-
-  const socketRef = useRef(null);
   const [online, setOnline] = useState(false);
+  const textareaRef = useRef(null);
 
   const [sidebarWidth, setSidebarWidth] = useState(256);
   const [isDragging, setIsDragging] = useState(false);
   const dragStartX = useRef(0);
   const startWidthRef = useRef(sidebarWidth);
+
+  const { socket, sendMessage } = useSocket({
+    onMessage: (message) => setMessages((m) => [...m, message]),
+    onConnect: (status) => setOnline(status),
+    onDisconnect: (status) => setOnline(status),
+    onConnectError: (status) => setOnline(status),
+  });
 
   useEffect(() => {
     const proj = projects.find((p) => p.id === selectedProjectId);
@@ -79,84 +48,12 @@ export default function Chat() {
     el.style.height = Math.min(el.scrollHeight, 200) + "px";
   }
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    if (!window.__io) {
-      window.__io = io({
-        path: "/socket.io",
-        transports: ["websocket", "polling"],
-      });
-    }
-
-    const socket = window.__io;
-    socketRef.current = socket;
-
-    socket.off("connect");
-    socket.off("disconnect");
-    socket.off("message");
-    socket.off("connect_error");
-
-    setOnline(!!socket.connected);
-
-    socket.on("connect", () => {
-      setOnline(true);
-      toast.success("Connected to chat");
-      console.log("Socket connected:", socket.id);
-    });
-
-    socket.on("disconnect", (reason) => {
-      setOnline(false);
-      toast.error("Disconnected from chat");
-      console.log("Socket disconnected:", reason);
-    });
-
-    socket.on("message", (payload) => {
-      const assistantMsg = {
-        id: Date.now(),
-        role: "assistant",
-        text:
-          typeof payload === "string"
-            ? payload
-            : payload?.text ?? JSON.stringify(payload),
-      };
-      setMessages((m) => [...m, assistantMsg]);
-    });
-
-    socket.on("connect_error", (err) => {
-      setOnline(false);
-      console.log("Socket connection failed:", err.message);
-      if (
-        err.message === "No auth cookie" ||
-        err.message === "Invalid or expired session"
-      ) {
-        toast.error("Unauthorized: Please log in to access chat");
-      } else {
-        toast.error(`Socket error: ${err.message}`);
-      }
-    });
-
-    return () => {
-      socket.off("connect");
-      socket.off("disconnect");
-      socket.off("message");
-      socket.off("connect_error");
-    };
-  }, []);
-
   function handleSend() {
     if (!input.trim()) return;
 
     const userMsg = { id: Date.now(), role: "user", text: input.trim() };
     setMessages((m) => [...m, userMsg]);
-
-    const socket = socketRef.current;
-    if (socket && socket.connected) {
-      socket.emit("message", input.trim());
-    } else {
-      toast.error("Socket not connected");
-    }
-
+    sendMessage(input.trim());
     setInput("");
   }
 
