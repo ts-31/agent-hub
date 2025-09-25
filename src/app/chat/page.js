@@ -32,6 +32,7 @@ export default function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [online, setOnline] = useState(false);
+  const [isThinking, setIsThinking] = useState(false);
 
   const textareaRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -44,12 +45,16 @@ export default function Chat() {
   // Socket: wrap onMessage to decide whether to autoscroll
   const { socket, sendMessage } = useSocket({
     onMessage: (message) => {
+      // when an assistant message arrives, stop thinking
+      if (message?.role === "assistant") {
+        setIsThinking(false);
+      }
+
       const chatContainer = chatContainerRef.current;
       const shouldAutoScroll = isUserNearBottom(chatContainer);
 
       setMessages((m) => [...m, message]);
 
-      // after DOM paint, scroll if user was near bottom
       requestAnimationFrame(() => {
         if (shouldAutoScroll) scrollToBottom(chatContainer, true);
       });
@@ -81,16 +86,19 @@ export default function Chat() {
 
     const userMsg = { id: Date.now(), role: "user", text: input.trim() };
 
-    // check user's position *before* adding the message
     const chatContainer = chatContainerRef.current;
     const shouldAutoScroll = isUserNearBottom(chatContainer);
 
-    // optimistically append the message
     setMessages((m) => [...m, userMsg]);
-    sendMessage(input.trim());
+
+    // set global thinking indicator
+    setIsThinking(true);
+
+    // emit message with projectId (ensure selectedProjectId is set)
+    sendMessage({ projectId: selectedProjectId, content: input.trim() });
+
     setInput("");
 
-    // after DOM update, scroll if appropriate
     requestAnimationFrame(() => {
       if (shouldAutoScroll) scrollToBottom(chatContainer, true);
     });
@@ -154,7 +162,7 @@ export default function Chat() {
           ref={chatContainerRef}
           className="flex-1 overflow-auto py-6 px-6 scroll-smooth"
         >
-          <MessageList messages={messages} />
+          <MessageList messages={messages} isThinking={isThinking} />
         </div>
 
         <ChatInput
