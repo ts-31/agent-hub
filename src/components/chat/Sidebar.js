@@ -7,6 +7,7 @@ function Sidebar({
   projects: initialProjects = null,
   selectedProjectId,
   setSelectedProjectId,
+  setProjectName,
 }) {
   const [projects, setProjects] = useState(initialProjects || []);
   const [loading, setLoading] = useState(!initialProjects);
@@ -50,12 +51,16 @@ function Sidebar({
         setProjects(mapped);
         if (!selectedProjectId && mapped.length > 0) {
           setSelectedProjectId(mapped[0].id);
+          setProjectName(mapped[0].name);
+        } else {
+          setProjectName("");
         }
       } catch (err) {
         if (!mounted) return;
         setError(err?.message || "Error fetching projects");
         setProjects([]);
         setSelectedProjectId(null);
+        setProjectName("");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -65,11 +70,27 @@ function Sidebar({
     return () => {
       mounted = false;
     };
-  }, [initialProjects]); // eslint-disable-line
+  }, [initialProjects, setSelectedProjectId, setProjectName]);
 
   useEffect(() => {
-    if (initialProjects) setProjects(initialProjects);
-  }, [initialProjects]);
+    if (initialProjects) {
+      setProjects(initialProjects);
+      if (!selectedProjectId && initialProjects.length > 0) {
+        setSelectedProjectId(initialProjects[0].id);
+        setProjectName(initialProjects[0].name);
+      }
+    }
+  }, [initialProjects, setSelectedProjectId, setProjectName]);
+
+  // Update project name when selectedProjectId changes
+  useEffect(() => {
+    if (selectedProjectId && projects.length > 0) {
+      const selectedProject = projects.find((p) => p.id === selectedProjectId);
+      setProjectName(selectedProject ? selectedProject.name : "");
+    } else {
+      setProjectName("");
+    }
+  }, [selectedProjectId, projects, setProjectName]);
 
   // called when a new project is created in the modal
   function handleCreateProject(project) {
@@ -82,6 +103,7 @@ function Sidebar({
 
     setProjects((prev) => [mapped, ...prev]);
     setSelectedProjectId(mapped.id);
+    setProjectName(mapped.name);
     setShowNewModal(false);
   }
 

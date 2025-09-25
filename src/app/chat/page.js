@@ -1,17 +1,9 @@
-// src/app/chat/page.js
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import {
-  Sheet,
-  SheetTrigger,
-  SheetContent,
-  SheetClose,
-} from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import useSocket from "@/hooks/useSocket";
 import Sidebar from "@/components/chat/Sidebar";
-import ProjectList from "@/components/chat/ProjectList";
 import ChatHeader from "@/components/chat/ChatHeader";
 import MessageList from "@/components/chat/MessageList";
 import ChatInput from "@/components/chat/ChatInput";
@@ -66,54 +58,6 @@ export default function Chat() {
     onDisconnect: (status) => setOnline(status),
     onConnectError: (status) => setOnline(status),
   });
-
-  // When selectedProjectId changes, fetch the project's name (lightweight)
-  useEffect(() => {
-    if (!selectedProjectId) {
-      setProjectName("");
-      setMessages([]);
-      return;
-    }
-
-    let mounted = true;
-    async function fetchProjectName() {
-      try {
-        const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
-          /\/$/,
-          ""
-        );
-        const url = base ? `${base}/api/projects` : "/api/projects";
-
-        const res = await fetch(url, {
-          method: "GET",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data?.error || "Failed to fetch projects");
-        }
-
-        const found = (data.projects || []).find(
-          (p) => p._id === selectedProjectId
-        );
-        if (!mounted) return;
-
-        setProjectName(found ? found.name : "");
-        // we keep messages empty for now; actual chat messages are handled via socket / separate API
-        setMessages([]);
-      } catch (err) {
-        if (!mounted) return;
-        setProjectName("");
-        setMessages([]);
-      }
-    }
-
-    fetchProjectName();
-    return () => {
-      mounted = false;
-    };
-  }, [selectedProjectId]);
 
   // Auto-scroll on mount/update only if near bottom
   useEffect(() => {
@@ -192,6 +136,7 @@ export default function Chat() {
         width={sidebarWidth}
         selectedProjectId={selectedProjectId}
         setSelectedProjectId={setSelectedProjectId}
+        setProjectName={setProjectName}
       />
 
       <div
@@ -200,28 +145,6 @@ export default function Chat() {
         style={{ width: 6 }}
         aria-hidden
       />
-
-      <Sheet>
-        <div className="md:hidden absolute top-4 left-4 z-30">
-          <SheetTrigger asChild>
-            <Button size="sm">Projects</Button>
-          </SheetTrigger>
-        </div>
-        <SheetContent side="left" className="w-72 p-4 md:hidden">
-          <div className="text-sm font-semibold mb-4">Projects</div>
-          {/* Sidebar's mobile sheet uses the same Sidebar logic on desktop */}
-          <ProjectList
-            projects={[]}
-            selectedProjectId={selectedProjectId}
-            onSelectProject={setSelectedProjectId}
-          />
-          <div className="mt-6">
-            <SheetClose asChild>
-              <Button>Close</Button>
-            </SheetClose>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       <main className="flex-1 flex flex-col">
         <ChatHeader projectName={projectName} online={online} />
