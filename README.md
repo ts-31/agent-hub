@@ -4,6 +4,16 @@
 
 ---
 
+# Demo Link
+
+A live demo of the Chatbot Platform is available here: [https://agent-hub-h9c8.onrender.com/](https://agent-hub-h9c8.onrender.com/)
+
+⚠️ **Note:** The app is hosted on Render. If it hasn’t been used recently, it may take a few seconds to spin up. Please be patient when opening the link.
+
+> Test it by creating agents/projects, chatting with them, and uploading files for context.
+
+---
+
 ## Key Features
 
 - Create / list / manage **Projects (Agents)** with a system prompt.
@@ -48,7 +58,8 @@ npm install
 2. Run Next.js (frontend + API routes)
 
 ```bash
-npm run dev
+npm run dev #or
+npm start
 ```
 
 > The Next.js app handles UI and REST endpoints (projects, prompts, file upload), while the Node server handles WebSocket connections for streaming/real-time chat.
