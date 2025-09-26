@@ -1,3 +1,4 @@
+// src/components/Sidebar.js
 "use client";
 
 import React, { useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "react-hot-toast";
 import ProjectList from "./ProjectList";
 import NewProjectModal from "./NewProjectModal";
+import { useAuth } from "@/context/AuthContext";
 
 function Sidebar({
   width,
@@ -14,6 +16,7 @@ function Sidebar({
   setProjectName,
 }) {
   const router = useRouter();
+  const { logOut } = useAuth();
 
   const [projects, setProjects] = useState(initialProjects || []);
   const [loading, setLoading] = useState(!initialProjects);
@@ -23,45 +26,35 @@ function Sidebar({
 
   useEffect(() => {
     if (initialProjects) return;
-
     let mounted = true;
+
     async function fetchProjects() {
       setLoading(true);
       setError(null);
-
       try {
         const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
           /\/$/,
           ""
         );
         const url = base ? `${base}/api/projects` : "/api/projects";
-
         const res = await fetch(url, {
           method: "GET",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
         });
-
         const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(data?.error || "Failed to fetch projects");
-        }
-
+        if (!res.ok) throw new Error(data?.error || "Failed to fetch projects");
         const mapped = (data.projects || []).map((p) => ({
           id: p._id,
           name: p.name,
           chats: [],
         }));
-
         if (!mounted) return;
-
         setProjects(mapped);
         if (!selectedProjectId && mapped.length > 0) {
           setSelectedProjectId(mapped[0].id);
           setProjectName(mapped[0].name);
-        } else {
-          setProjectName("");
-        }
+        } else setProjectName("");
       } catch (err) {
         if (!mounted) return;
         setError(err?.message || "Error fetching projects");
@@ -99,7 +92,6 @@ function Sidebar({
     selectedProjectId,
   ]);
 
-  // Update project name when selectedProjectId changes
   useEffect(() => {
     if (selectedProjectId && projects.length > 0) {
       const selectedProject = projects.find((p) => p.id === selectedProjectId);
@@ -122,24 +114,39 @@ function Sidebar({
     setLogoutLoading(true);
 
     try {
-      const res = await fetch("/api/auth/logout", {
+      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
+        /\/$/,
+        ""
+      );
+      const logoutUrl = base ? `${base}/api/auth/logout` : `/api/auth/logout`;
+
+      const res = await fetch(logoutUrl, {
         method: "POST",
         credentials: "include",
-        headers: { "Content-Type": "application/json" },
       });
-
       const data = await res.json().catch(() => ({}));
-      if (!res.ok || data?.ok === false) {
-        toast.error(data?.error || "Logout failed");
-        setLogoutLoading(false);
-        return;
+
+      try {
+        await logOut();
+      } catch (e) {
+        console.log("Local signOut failed:", e);
       }
 
-      toast.success("Logged out successfully!");
-      router.push("/");
+      if (res.ok) {
+        toast.success("Successfully logged out!");
+        router.push("/");
+      } else {
+        toast.error(data?.error || "Logout failed!");
+      }
     } catch (err) {
-      console.error("Logout error:", err);
-      toast.error("Logout failed. Try again.");
+      try {
+        await logOut();
+      } catch (e) {
+        console.log("Local signOut failed after error:", e);
+      }
+      console.log("Logout error:", err);
+      toast.error("Logout failed!");
+    } finally {
       setLogoutLoading(false);
     }
   }
@@ -149,60 +156,37 @@ function Sidebar({
       className="hidden md:flex md:flex-col bg-background border-r border-foreground p-4"
       style={{ width }}
     >
-      <div className="mb-4">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-semibold">Projects</div>
-
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-white text-sm font-medium shadow-md border border-foreground hover:scale-[1.02] transition-transform active:scale-100"
-            aria-label="Create new project"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowNewModal(true);
-            }}
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="text-sm font-semibold">Projects</div>
+        <button
+          type="button"
+          className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-white text-sm font-medium shadow-md border border-foreground hover:scale-[1.02] transition-transform active:scale-100"
+          onClick={(e) => {
+            e.preventDefault();
+            setShowNewModal(true);
+          }}
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="w-4 h-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            aria-hidden
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="w-4 h-4"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-              aria-hidden
-            >
-              <path
-                fillRule="evenodd"
-                d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span>New Project</span>
-          </button>
-        </div>
+            <path
+              fillRule="evenodd"
+              d="M10 5a1 1 0 011 1v3h3a1 1 0 110 2h-3v3a1 1 0 11-2 0v-3H6a1 1 0 110-2h3V6a1 1 0 011-1z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span>New Project</span>
+        </button>
       </div>
 
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center justify-center py-6">
-            <svg
-              className="w-6 h-6 animate-spin text-muted"
-              xmlns="http://www.w3.org/2000/svg"
-              fill="none"
-              viewBox="0 0 24 24"
-            >
-              <circle
-                className="opacity-25"
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeWidth="4"
-              ></circle>
-              <path
-                className="opacity-75"
-                fill="currentColor"
-                d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-              ></path>
-            </svg>
+            <span>Loading projects...</span>
           </div>
         ) : error ? (
           <div className="text-sm text-red-400 px-2">{error}</div>
@@ -221,7 +205,6 @@ function Sidebar({
         onCreate={handleCreateProject}
       />
 
-      {/* Logout button at the bottom */}
       <div className="mt-auto pt-4">
         <button
           type="button"
@@ -234,38 +217,8 @@ function Sidebar({
             opacity: logoutLoading ? 0.8 : 1,
             cursor: logoutLoading ? "not-allowed" : "pointer",
           }}
-          aria-label="Logout"
         >
-          {logoutLoading ? (
-            <>
-              <svg
-                className="w-4 h-4 animate-spin"
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                style={{ color: "var(--color-foreground)" }}
-              >
-                <circle
-                  className="opacity-25"
-                  cx="12"
-                  cy="12"
-                  r="10"
-                  stroke="currentColor"
-                  strokeWidth="4"
-                />
-                <path
-                  className="opacity-75"
-                  fill="currentColor"
-                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
-                />
-              </svg>
-              <span>Logging...</span>
-            </>
-          ) : (
-            <>
-              <span>Logout</span>
-            </>
-          )}
+          {logoutLoading ? <span>Logging out...</span> : <span>Logout</span>}
         </button>
       </div>
     </aside>
