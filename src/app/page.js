@@ -16,9 +16,7 @@ export default function Page() {
     setLogoutLoading(true);
 
     try {
-      const base =
-        (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/$/, "") || "";
-      const logoutUrl = base ? `${base}/api/auth/logout` : `/api/auth/logout`;
+      const logoutUrl = `/api/auth/logout`;
 
       const res = await fetch(logoutUrl, {
         method: "POST",

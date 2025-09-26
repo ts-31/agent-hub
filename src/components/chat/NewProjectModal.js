@@ -44,11 +44,7 @@ export default function NewProjectModal({
 
     setLoading(true);
     try {
-      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
-        /\/$/,
-        ""
-      );
-      const url = base ? `${base}/api/projects` : "/api/projects";
+      const url = `/api/projects`;
 
       const res = await fetch(url, {
         method: "POST",

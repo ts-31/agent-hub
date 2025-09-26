@@ -79,13 +79,7 @@ export default function Chat() {
       setLoadingMessages(true);
       setIsThinking(false); // reset thinking when switching projects
       try {
-        const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
-          /\/$/,
-          ""
-        );
-        const url = base
-          ? `${base}/api/projects/${selectedProjectId}/messages`
-          : `/api/projects/${selectedProjectId}/messages`;
+        const url = `/api/projects/${selectedProjectId}/messages`;
 
         const res = await fetch(url, {
           method: "GET",

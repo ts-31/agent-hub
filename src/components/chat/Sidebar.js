@@ -32,11 +32,7 @@ function Sidebar({
       setLoading(true);
       setError(null);
       try {
-        const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
-          /\/$/,
-          ""
-        );
-        const url = base ? `${base}/api/projects` : "/api/projects";
+        const url = `/api/projects`;
         const res = await fetch(url, {
           method: "GET",
           credentials: "include",
@@ -114,11 +110,7 @@ function Sidebar({
     setLogoutLoading(true);
 
     try {
-      const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
-        /\/$/,
-        ""
-      );
-      const logoutUrl = base ? `${base}/api/auth/logout` : `/api/auth/logout`;
+      const logoutUrl = `/api/auth/logout`;
 
       const res = await fetch(logoutUrl, {
         method: "POST",
