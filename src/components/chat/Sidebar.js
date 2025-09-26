@@ -1,4 +1,8 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { toast } from "react-hot-toast";
 import ProjectList from "./ProjectList";
 import NewProjectModal from "./NewProjectModal";
 
@@ -9,10 +13,13 @@ function Sidebar({
   setSelectedProjectId,
   setProjectName,
 }) {
+  const router = useRouter();
+
   const [projects, setProjects] = useState(initialProjects || []);
   const [loading, setLoading] = useState(!initialProjects);
   const [error, setError] = useState(null);
   const [showNewModal, setShowNewModal] = useState(false);
+  const [logoutLoading, setLogoutLoading] = useState(false);
 
   useEffect(() => {
     if (initialProjects) return;
@@ -70,7 +77,12 @@ function Sidebar({
     return () => {
       mounted = false;
     };
-  }, [initialProjects, setSelectedProjectId, setProjectName]);
+  }, [
+    initialProjects,
+    setSelectedProjectId,
+    setProjectName,
+    selectedProjectId,
+  ]);
 
   useEffect(() => {
     if (initialProjects) {
@@ -80,7 +92,12 @@ function Sidebar({
         setProjectName(initialProjects[0].name);
       }
     }
-  }, [initialProjects, setSelectedProjectId, setProjectName]);
+  }, [
+    initialProjects,
+    setSelectedProjectId,
+    setProjectName,
+    selectedProjectId,
+  ]);
 
   // Update project name when selectedProjectId changes
   useEffect(() => {
@@ -92,19 +109,39 @@ function Sidebar({
     }
   }, [selectedProjectId, projects, setProjectName]);
 
-  // called when a new project is created in the modal
   function handleCreateProject(project) {
-    // map backend project to local shape
-    const mapped = {
-      id: project._id,
-      name: project.name,
-      chats: [],
-    };
-
+    const mapped = { id: project._id, name: project.name, chats: [] };
     setProjects((prev) => [mapped, ...prev]);
     setSelectedProjectId(mapped.id);
     setProjectName(mapped.name);
     setShowNewModal(false);
+  }
+
+  async function handleLogout() {
+    if (logoutLoading) return;
+    setLogoutLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/logout", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || data?.ok === false) {
+        toast.error(data?.error || "Logout failed");
+        setLogoutLoading(false);
+        return;
+      }
+
+      toast.success("Logged out successfully!");
+      router.push("/");
+    } catch (err) {
+      console.error("Logout error:", err);
+      toast.error("Logout failed. Try again.");
+      setLogoutLoading(false);
+    }
   }
 
   return (
@@ -116,10 +153,9 @@ function Sidebar({
         <div className="flex items-center justify-between gap-3">
           <div className="text-sm font-semibold">Projects</div>
 
-          {/* New Project button now opens the modal */}
           <button
             type="button"
-            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-primary text-white text-sm font-medium shadow-md border border-foreground hover:scale-[1.02] transition-transform active:scale-100"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md text-white text-sm font-medium shadow-md border border-foreground hover:scale-[1.02] transition-transform active:scale-100"
             aria-label="Create new project"
             onClick={(e) => {
               e.preventDefault();
@@ -179,12 +215,59 @@ function Sidebar({
         )}
       </div>
 
-      {/* New Project Modal */}
       <NewProjectModal
         open={showNewModal}
         onClose={() => setShowNewModal(false)}
         onCreate={handleCreateProject}
       />
+
+      {/* Logout button at the bottom */}
+      <div className="mt-auto pt-4">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={logoutLoading}
+          className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium shadow-md border"
+          style={{
+            color: "var(--color-foreground)",
+            borderColor: "var(--color-foreground)",
+            opacity: logoutLoading ? 0.8 : 1,
+            cursor: logoutLoading ? "not-allowed" : "pointer",
+          }}
+          aria-label="Logout"
+        >
+          {logoutLoading ? (
+            <>
+              <svg
+                className="w-4 h-4 animate-spin"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                style={{ color: "var(--color-foreground)" }}
+              >
+                <circle
+                  className="opacity-25"
+                  cx="12"
+                  cy="12"
+                  r="10"
+                  stroke="currentColor"
+                  strokeWidth="4"
+                />
+                <path
+                  className="opacity-75"
+                  fill="currentColor"
+                  d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                />
+              </svg>
+              <span>Logging...</span>
+            </>
+          ) : (
+            <>
+              <span>Logout</span>
+            </>
+          )}
+        </button>
+      </div>
     </aside>
   );
 }
