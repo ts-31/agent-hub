@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { toast } from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import useSocket from "@/hooks/useSocket";
 import Sidebar from "@/components/chat/Sidebar";
@@ -33,6 +34,7 @@ export default function Chat() {
   const [input, setInput] = useState("");
   const [online, setOnline] = useState(false);
   const [isThinking, setIsThinking] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
 
   const textareaRef = useRef(null);
   const chatContainerRef = useRef(null);
@@ -64,6 +66,68 @@ export default function Chat() {
     onConnectError: (status) => setOnline(status),
   });
 
+  // When project changes, load messages from backend
+  useEffect(() => {
+    if (!selectedProjectId) {
+      setMessages([]);
+      setProjectName("");
+      return;
+    }
+
+    let mounted = true;
+    async function loadMessages() {
+      setLoadingMessages(true);
+      setIsThinking(false); // reset thinking when switching projects
+      try {
+        const base = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(
+          /\/$/,
+          ""
+        );
+        const url = base
+          ? `${base}/api/projects/${selectedProjectId}/messages`
+          : `/api/projects/${selectedProjectId}/messages`;
+
+        const res = await fetch(url, {
+          method: "GET",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          throw new Error(data?.error || "Failed to load messages");
+        }
+
+        // map server messages to frontend shape { id, role, text }
+        const mapped = (data.messages || []).map((m) => ({
+          id: m._id || m.id || Date.now().toString(),
+          role: m.role || "assistant",
+          text: m.content ?? m.text ?? "",
+        }));
+
+        if (!mounted) return;
+
+        setMessages(mapped);
+        // scroll to bottom after messages loaded
+        requestAnimationFrame(() => {
+          const c = chatContainerRef.current;
+          if (c) scrollToBottom(c, false);
+        });
+      } catch (err) {
+        if (!mounted) return;
+        toast.error(err?.message || "Unable to load messages");
+        setMessages([]);
+      } finally {
+        if (mounted) setLoadingMessages(false);
+      }
+    }
+
+    loadMessages();
+    return () => {
+      mounted = false;
+    };
+  }, [selectedProjectId]);
+
   // Auto-scroll on mount/update only if near bottom
   useEffect(() => {
     const chatContainer = chatContainerRef.current;
@@ -83,6 +147,10 @@ export default function Chat() {
 
   function handleSend() {
     if (!input.trim()) return;
+    if (!selectedProjectId) {
+      toast.error("Select a project first");
+      return;
+    }
 
     const userMsg = { id: Date.now(), role: "user", text: input.trim() };
 
@@ -162,7 +230,13 @@ export default function Chat() {
           ref={chatContainerRef}
           className="flex-1 overflow-auto py-6 px-6 scroll-smooth"
         >
-          <MessageList messages={messages} isThinking={isThinking} />
+          {loadingMessages ? (
+            <div className="text-center text-sm text-muted py-8">
+              Loading messages...
+            </div>
+          ) : (
+            <MessageList messages={messages} isThinking={isThinking} />
+          )}
         </div>
 
         <ChatInput
