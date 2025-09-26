@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "node server.mjs",
     "build": "next build",
-    "start": "next start"
+    "start": "node server.mjs"
   },
   "dependencies": {
     "@google/genai": "^1.21.0",
