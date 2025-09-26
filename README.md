@@ -1,36 +1,119 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# AgentHub
 
-## Getting Started
+**AgentHub** is a minimal chatbot platform that lets authenticated users create multiple projects/agents and chat with them using an LLM (Gemini). The frontend is built with **Next.js** and the project uses a **custom Node.js server** for WebSocket support. Authentication is handled by **Firebase Auth** and the session is maintained using a secure **cookie**.
 
-First, run the development server:
+---
+
+## Key Features
+
+- Create / list / manage **Projects (Agents)** with a system prompt.
+- Real-time chat interface via **WebSockets** (single persistent connection).
+- Chats are persisted and the last **10 messages** + agent details are sent to Gemini for each LLM call.
+- Authentication with **Firebase Auth** and cookie-based session management.
+- Clean separation of responsibilities: Next.js for UI and API routes, Node.js custom server for sockets.
+- Simple, extensible architecture suitable for internship/demo.
+
+---
+
+## Tech Stack
+
+- Frontend / App: **Next.js** (React)
+- WebSocket Server: **Node.js** (custom server for socket support)
+- Authentication: **Firebase Auth** (session cookie-based)
+- Database: **MongoDB** (Mongoose) — stores projects, prompts, and messages
+- LLM: **Gemini** (calls include last 10 messages + agent prompt)
+- Deployment: Vercel (frontend) + Render/Railway/Heroku for Node server and MongoDB (example)
+
+---
+
+## Prerequisites
+
+- Node.js 18+ / npm or yarn
+- MongoDB (Atlas or local)
+- Firebase project (service account or admin SDK)
+- Gemini API key (or equivalent LLM key)
+- Environment variables (see `.env.example` below)
+
+---
+
+## Development (run locally)
+
+1. Install dependencies (both front-end and server if separated)
+
+```bash
+# From project root
+npm install
+```
+
+2. Run Next.js (frontend + API routes)
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+> The Next.js app handles UI and REST endpoints (projects, prompts, file upload), while the Node server handles WebSocket connections for streaming/real-time chat.
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+---
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## How it works — core flow (simplified)
 
-## Learn More
+1. **Agent creation**
 
-To learn more about Next.js, take a look at the following resources:
+   - User creates a project/agent via the UI.
+   - The Next.js API saves the project in MongoDB.
+   - Each project stores a `systemPrompt` that defines the agent's behavior.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+2. **Chat**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+   - User opens the app and is authenticated via Firebase session cookie.
+   - The frontend opens a single persistent WebSocket connection to the Node server.
+   - When the user sends a message, it is sent to the backend through the WebSocket.
+   - Backend fetches the agent prompt and the last 10 messages from the database to build the LLM input.
+   - The backend calls Gemini (or another configured LLM) with this input.
+   - The LLM response is sent back to the frontend via WebSocket.
+   - Both user message and assistant response are stored in MongoDB.
 
-## Deploy on Vercel
+3. **Token / Context handling**
+   - Only the last 10 messages plus the system prompt are sent for each LLM request to avoid token limits and extra cost.
+   - Users can **Clear Chat** in the UI to reset the conversation history for that agent.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## API Summary (core endpoints)
+
+- `POST /api/auth/login` — login user via Firebase and set session cookie
+- `POST /api/auth/logout` — clears session cookie (server validates via Firebase admin)
+- `GET /api/projects` — list user projects
+- `POST /api/projects` — create a new project/agent
+- `GET /api/projects/:id` — get project details
+- WebSocket endpoint (custom Node server) — real-time `chat_message` events for sending/receiving LLM replies
+
+---
+
+## Security notes
+
+- Authentication uses Firebase Auth. The server should validate the **session cookie** with Firebase Admin SDK for each WebSocket connection handshake and for protected REST APIs.
+- Use **HttpOnly** secure cookies for session tokens to protect against XSS.
+- Validate and sanitize uploaded files. Enforce content-type and size limits.
+- Keep LLM and Firebase keys in server-side environment variables — never expose them to the client.
+
+---
+
+## Known limitations
+
+- Uses last 10 messages for context (simple sliding window) — not a full long-term memory or RAG system.
+- No advanced summarization or vector retrieval (pgvector/Pinecone) implemented by default.
+- File uploads require text extraction to be useful for LLM context.
+
+---
+
+## Future work / Improvements
+
+- Add file upload support for agents/projects and integrate it with the LLM.
+- Resigning PR soon for this feature.
+
+---
+
+## License
+
+MIT
